@@ -1,0 +1,451 @@
+import { Request, Response, NextFunction } from 'express';
+import { getDB } from '../config/database';
+import { AppError } from '../middleware/errorHandler';
+import { RowDataPacket } from 'mysql2';
+
+interface Listing extends RowDataPacket {
+  id: number;
+  user_id: number;
+  title: string;
+  description: string;
+  category: string;
+  address: string;
+  city: string;
+  area: number;
+  max_guests: number;
+  price_per_hour: number;
+  price_per_day?: number;
+  amenities?: string[];
+  rules?: string;
+  status: string;
+  images?: string[];
+  average_rating?: number;
+  total_reviews?: number;
+  host_name?: string;
+  host_avatar?: string;
+}
+
+export const createListing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const userId = req.user!.id;
+    const {
+      title,
+      description,
+      category,
+      address,
+      city,
+      area,
+      maxGuests,
+      pricePerHour,
+      pricePerDay,
+      amenities,
+      rules,
+      latitude,
+      longitude
+    } = req.body;
+
+    const db = getDB();
+
+    const [result] = await db.execute(
+      `INSERT INTO listings (
+        user_id, title, description, category, address, city, 
+        latitude, longitude, area, max_guests, price_per_hour, 
+        price_per_day, amenities, rules
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        userId,
+        title,
+        description,
+        category,
+        address,
+        city,
+        latitude || null,
+        longitude || null,
+        area,
+        maxGuests,
+        pricePerHour,
+        pricePerDay || null,
+        JSON.stringify(amenities || []),
+        rules || null
+      ]
+    );
+
+    const listingId = (result as any).insertId;
+
+    res.status(201).json({
+      success: true,
+      data: { id: listingId }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getListings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const {
+      city,
+      category,
+      minPrice,
+      maxPrice,
+      minArea,
+      maxArea,
+      amenities,
+      page = 1,
+      limit = 20
+    } = req.query;
+
+    const db = getDB();
+    let whereConditions: string[] = ['l.status = "active"'];
+    let params: any[] = [];
+
+    if (city) {
+      whereConditions.push('l.city = ?');
+      params.push(city);
+    }
+
+    if (category) {
+      whereConditions.push('l.category = ?');
+      params.push(category);
+    }
+
+    if (minPrice) {
+      whereConditions.push('l.price_per_hour >= ?');
+      params.push(minPrice);
+    }
+
+    if (maxPrice) {
+      whereConditions.push('l.price_per_hour <= ?');
+      params.push(maxPrice);
+    }
+
+    if (minArea) {
+      whereConditions.push('l.area >= ?');
+      params.push(minArea);
+    }
+
+    if (maxArea) {
+      whereConditions.push('l.area <= ?');
+      params.push(maxArea);
+    }
+
+    if (amenities) {
+      const amenityList = (amenities as string).split(',');
+      amenityList.forEach(amenity => {
+        whereConditions.push('JSON_CONTAINS(l.amenities, ?)', );
+        params.push(JSON.stringify(amenity));
+      });
+    }
+
+    const offset = ((page as number) - 1) * (limit as number);
+    const whereClause = whereConditions.length > 0 
+      ? 'WHERE ' + whereConditions.join(' AND ')
+      : '';
+
+    // Get listings with images and ratings
+    const [listings] = await db.execute<Listing[]>(
+      `SELECT 
+        l.*,
+        u.name as host_name,
+        u.avatar as host_avatar,
+        GROUP_CONCAT(DISTINCT li.url) as images,
+        COALESCE(AVG(r.rating), 0) as average_rating,
+        COUNT(DISTINCT r.id) as total_reviews
+      FROM listings l
+      JOIN users u ON l.user_id = u.id
+      LEFT JOIN listing_images li ON l.id = li.listing_id
+      LEFT JOIN reviews r ON l.id = r.listing_id
+      ${whereClause}
+      GROUP BY l.id
+      ORDER BY l.created_at DESC
+      LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
+    );
+
+    // Parse JSON fields and split images
+    const formattedListings = listings.map(listing => ({
+      ...listing,
+      amenities: JSON.parse(listing.amenities as any || '[]'),
+      images: listing.images ? (listing.images as any).split(',') : []
+    }));
+
+    // Get total count
+    const [countResult] = await db.execute<RowDataPacket[]>(
+      `SELECT COUNT(DISTINCT l.id) as total
+      FROM listings l
+      ${whereClause}`,
+      params
+    );
+
+    const total = countResult[0].total;
+
+    res.json({
+      success: true,
+      data: {
+        listings: formattedListings,
+        pagination: {
+          page: Number(page),
+          limit: Number(limit),
+          total,
+          totalPages: Math.ceil(total / Number(limit))
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getListingById = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const db = getDB();
+
+    const [listings] = await db.execute<Listing[]>(
+      `SELECT 
+        l.*,
+        u.name as host_name,
+        u.avatar as host_avatar,
+        u.bio as host_bio,
+        u.created_at as host_joined,
+        u.verified as host_verified,
+        GROUP_CONCAT(DISTINCT li.url ORDER BY li.order_index) as images,
+        COALESCE(AVG(r.rating), 0) as average_rating,
+        COUNT(DISTINCT r.id) as total_reviews
+      FROM listings l
+      JOIN users u ON l.user_id = u.id
+      LEFT JOIN listing_images li ON l.id = li.listing_id
+      LEFT JOIN reviews r ON l.id = r.listing_id
+      WHERE l.id = ?
+      GROUP BY l.id`,
+      [id]
+    );
+
+    if (listings.length === 0) {
+      throw new AppError('Listing not found', 404);
+    }
+
+    const listing = {
+      ...listings[0],
+      amenities: JSON.parse(listings[0].amenities as any || '[]'),
+      images: listings[0].images ? (listings[0].images as any).split(',') : []
+    };
+
+    res.json({
+      success: true,
+      data: { listing }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateListing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const db = getDB();
+
+    // Check ownership
+    const [listings] = await db.execute<RowDataPacket[]>(
+      'SELECT user_id FROM listings WHERE id = ?',
+      [id]
+    );
+
+    if (listings.length === 0) {
+      throw new AppError('Listing not found', 404);
+    }
+
+    if (listings[0].user_id !== userId) {
+      throw new AppError('Unauthorized to update this listing', 403);
+    }
+
+    // Build update query
+    const updates: string[] = [];
+    const values: any[] = [];
+
+    Object.keys(req.body).forEach(key => {
+      if (key === 'amenities') {
+        updates.push(`${key} = ?`);
+        values.push(JSON.stringify(req.body[key]));
+      } else if (['title', 'description', 'category', 'address', 'city', 'area', 'maxGuests', 'pricePerHour', 'pricePerDay', 'rules'].includes(key)) {
+        updates.push(`${key === 'maxGuests' ? 'max_guests' : key === 'pricePerHour' ? 'price_per_hour' : key === 'pricePerDay' ? 'price_per_day' : key} = ?`);
+        values.push(req.body[key]);
+      }
+    });
+
+    if (updates.length === 0) {
+      throw new AppError('No fields to update', 400);
+    }
+
+    values.push(id);
+
+    await db.execute(
+      `UPDATE listings SET ${updates.join(', ')} WHERE id = ?`,
+      values
+    );
+
+    res.json({
+      success: true,
+      message: 'Listing updated successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const deleteListing = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const db = getDB();
+
+    // Check ownership
+    const [listings] = await db.execute<RowDataPacket[]>(
+      'SELECT user_id FROM listings WHERE id = ?',
+      [id]
+    );
+
+    if (listings.length === 0) {
+      throw new AppError('Listing not found', 404);
+    }
+
+    if (listings[0].user_id !== userId) {
+      throw new AppError('Unauthorized to delete this listing', 403);
+    }
+
+    // Soft delete
+    await db.execute(
+      'UPDATE listings SET status = "deleted" WHERE id = ?',
+      [id]
+    );
+
+    res.json({
+      success: true,
+      message: 'Listing deleted successfully'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const uploadImages = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.files || !Array.isArray(req.files)) {
+      throw new AppError('No images uploaded', 400);
+    }
+
+    const { id } = req.params;
+    const userId = req.user!.id;
+    const db = getDB();
+
+    // Check ownership
+    const [listings] = await db.execute<RowDataPacket[]>(
+      'SELECT user_id FROM listings WHERE id = ?',
+      [id]
+    );
+
+    if (listings.length === 0) {
+      throw new AppError('Listing not found', 404);
+    }
+
+    if (listings[0].user_id !== userId) {
+      throw new AppError('Unauthorized to upload images to this listing', 403);
+    }
+
+    // Get current image count
+    const [imageCount] = await db.execute<RowDataPacket[]>(
+      'SELECT COUNT(*) as count FROM listing_images WHERE listing_id = ?',
+      [id]
+    );
+
+    let orderIndex = imageCount[0].count;
+
+    // In production, upload to S3 and get URLs
+    // For now, we'll just store placeholder URLs
+    const imageUrls = req.files.map((file, index) => ({
+      url: `/uploads/listings/${id}/${Date.now()}-${index}.jpg`,
+      orderIndex: orderIndex + index
+    }));
+
+    // Insert image records
+    for (const image of imageUrls) {
+      await db.execute(
+        'INSERT INTO listing_images (listing_id, url, order_index) VALUES (?, ?, ?)',
+        [id, image.url, image.orderIndex]
+      );
+    }
+
+    res.json({
+      success: true,
+      data: { images: imageUrls.map(img => img.url) }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getUserListings = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    const { userId } = req.params;
+    const db = getDB();
+
+    const [listings] = await db.execute<Listing[]>(
+      `SELECT 
+        l.*,
+        GROUP_CONCAT(DISTINCT li.url) as images,
+        COALESCE(AVG(r.rating), 0) as average_rating,
+        COUNT(DISTINCT r.id) as total_reviews,
+        COUNT(DISTINCT b.id) as total_bookings
+      FROM listings l
+      LEFT JOIN listing_images li ON l.id = li.listing_id
+      LEFT JOIN reviews r ON l.id = r.listing_id
+      LEFT JOIN bookings b ON l.id = b.listing_id AND b.status = 'completed'
+      WHERE l.user_id = ? AND l.status != 'deleted'
+      GROUP BY l.id
+      ORDER BY l.created_at DESC`,
+      [userId]
+    );
+
+    const formattedListings = listings.map(listing => ({
+      ...listing,
+      amenities: JSON.parse(listing.amenities as any || '[]'),
+      images: listing.images ? (listing.images as any).split(',') : []
+    }));
+
+    res.json({
+      success: true,
+      data: { listings: formattedListings }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
