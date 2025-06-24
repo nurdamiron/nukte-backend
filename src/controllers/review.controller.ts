@@ -102,7 +102,7 @@ export const getListingReviews = async (
     const { page = 1, limit = 10 } = req.query;
     const db = getDB();
 
-    const offset = ((page as number) - 1) * (limit as number);
+    const offset = ((Number(page)) - 1) * (Number(limit));
 
     // Get reviews
     const [reviews] = await db.execute<Review[]>(
@@ -118,8 +118,8 @@ export const getListingReviews = async (
       JOIN users u ON r.reviewer_id = u.id
       WHERE r.listing_id = ?
       ORDER BY r.created_at DESC
-      LIMIT ? OFFSET ?`,
-      [listingId, limit, offset]
+      LIMIT ${Number(limit)} OFFSET ${offset}`,
+      [listingId]
     );
 
     // Get total count and average rating
@@ -149,6 +149,7 @@ export const getListingReviews = async (
       }
     });
   } catch (error) {
+    console.error('Error in getListingReviews:', error);
     next(error);
   }
 };

@@ -115,8 +115,8 @@ export const getBookings = async (
     const { role, status } = req.query;
     const db = getDB();
 
-    let whereConditions = [];
-    let params = [];
+    let whereConditions: string[] = [];
+    let params: any[] = [];
 
     if (role === 'guest') {
       whereConditions.push('b.guest_id = ?');
@@ -134,7 +134,7 @@ export const getBookings = async (
       params.push(status);
     }
 
-    const whereClause = whereConditions.join(' AND ');
+    const whereClause = whereConditions.length > 0 ? whereConditions.join(' AND ') : '1=1';
 
     const [bookings] = await db.execute<Booking[]>(
       `SELECT 

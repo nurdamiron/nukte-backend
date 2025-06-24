@@ -1,7 +1,8 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
-import { authenticate, authorize } from '../middleware/auth';
+import { authenticate, authorize, requireVerified } from '../middleware/auth';
 import { validate } from '../middleware/validate';
+import { uploadLimiter } from '../middleware/rateLimiter';
 import {
   createListing,
   getListings,
@@ -59,6 +60,7 @@ router.get('/:id', getListingById);
 router.post(
   '/',
   authenticate,
+  requireVerified,
   authorize('host', 'both'),
   [
     body('title').notEmpty().withMessage('Title is required'),
@@ -80,6 +82,7 @@ router.post(
 router.put(
   '/:id',
   authenticate,
+  requireVerified,
   authorize('host', 'both'),
   [
     body('title').optional().notEmpty(),
@@ -103,7 +106,9 @@ router.delete(
 router.post(
   '/:id/images',
   authenticate,
+  requireVerified,
   authorize('host', 'both'),
+  uploadLimiter,
   upload.array('images', 20),
   uploadImages
 );

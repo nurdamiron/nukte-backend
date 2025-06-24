@@ -29,10 +29,13 @@ export const authenticate = async (
       throw new AppError('No token provided', 401);
     }
 
-    const decoded = jwt.verify(
-      token,
-      process.env.JWT_SECRET || 'secret'
-    ) as JwtPayload;
+    const secret = process.env.JWT_SECRET;
+    
+    if (!secret) {
+      throw new Error('JWT_SECRET environment variable is required');
+    }
+    
+    const decoded = jwt.verify(token, secret) as JwtPayload;
 
     // Verify user exists
     const db = getDB();
@@ -62,10 +65,49 @@ export const authorize = (...roles: string[]) => {
       return next(new AppError('Unauthorized', 401));
     }
 
-    if (!roles.includes(req.user.role) && req.user.role !== 'admin') {
+    // Check if user has required role (including "both" logic)
+    const hasRole = roles.some(role => {
+      if (req.user!.role === 'admin') return true;
+      if (req.user!.role === role) return true;
+      if (req.user!.role === 'both' && (role === 'host' || role === 'guest')) return true;
+      return false;
+    });
+
+    if (!hasRole) {
       return next(new AppError('Forbidden', 403));
     }
 
     next();
   };
+};
+
+export const requireVerified = async (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
+  try {
+    if (!req.user) {
+      return next(new AppError('Unauthorized', 401));
+    }
+
+    const db = getDB();
+    const [users] = await db.execute(
+      'SELECT verified FROM users WHERE id = ?',
+      [req.user.id]
+    );
+
+    if (!Array.isArray(users) || users.length === 0) {
+      return next(new AppError('User not found', 401));
+    }
+
+    const user = users[0] as { verified: boolean };
+    if (!user.verified) {
+      return next(new AppError('Email verification required', 403));
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };

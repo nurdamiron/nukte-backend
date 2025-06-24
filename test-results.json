@@ -1,0 +1,178 @@
+{
+  "summary": {
+    "total": 27,
+    "passed": 22,
+    "failed": 5,
+    "skipped": 0,
+    "successRate": "81.48%",
+    "timestamp": "2025-06-23T13:34:14.878Z"
+  },
+  "results": [
+    {
+      "test": "AUTH_001_Register_Host",
+      "status": "PASS",
+      "details": "User ID: 17",
+      "timestamp": "2025-06-23T13:34:03.115Z"
+    },
+    {
+      "test": "AUTH_002_Register_Guest",
+      "status": "PASS",
+      "details": "User ID: 18",
+      "timestamp": "2025-06-23T13:34:03.565Z"
+    },
+    {
+      "test": "AUTH_003_Login_Host",
+      "status": "PASS",
+      "details": "Login successful",
+      "timestamp": "2025-06-23T13:34:04.052Z"
+    },
+    {
+      "test": "AUTH_004_Get_Profile",
+      "status": "PASS",
+      "details": "Profile: Test Host",
+      "timestamp": "2025-06-23T13:34:04.604Z"
+    },
+    {
+      "test": "AUTH_005_Update_Profile",
+      "status": "PASS",
+      "details": "Profile updated",
+      "timestamp": "2025-06-23T13:34:05.240Z"
+    },
+    {
+      "test": "LISTING_001_Create",
+      "status": "PASS",
+      "details": "Listing ID: 7",
+      "timestamp": "2025-06-23T13:34:05.663Z"
+    },
+    {
+      "test": "LISTING_002_Get_All",
+      "status": "FAIL",
+      "details": "Request failed with status code 500",
+      "timestamp": "2025-06-23T13:34:05.882Z"
+    },
+    {
+      "test": "LISTING_003_Get_By_ID",
+      "status": "FAIL",
+      "details": "Request failed with status code 500",
+      "timestamp": "2025-06-23T13:34:06.191Z"
+    },
+    {
+      "test": "LISTING_004_Search_By_City",
+      "status": "FAIL",
+      "details": "Request failed with status code 500",
+      "timestamp": "2025-06-23T13:34:06.502Z"
+    },
+    {
+      "test": "LISTING_005_Update",
+      "status": "PASS",
+      "details": "Listing updated",
+      "timestamp": "2025-06-23T13:34:07.135Z"
+    },
+    {
+      "test": "LISTING_006_Get_User_Listings",
+      "status": "FAIL",
+      "details": "Request failed with status code 500",
+      "timestamp": "2025-06-23T13:34:07.755Z"
+    },
+    {
+      "test": "BOOKING_001_Create",
+      "status": "PASS",
+      "details": "Booking ID: 6, Total: 26400 KZT",
+      "timestamp": "2025-06-23T13:34:08.598Z"
+    },
+    {
+      "test": "BOOKING_002_Get_Guest_Bookings",
+      "status": "PASS",
+      "details": "Guest has 1 bookings",
+      "timestamp": "2025-06-23T13:34:09.012Z"
+    },
+    {
+      "test": "BOOKING_003_Get_Host_Bookings",
+      "status": "PASS",
+      "details": "Host has 1 bookings",
+      "timestamp": "2025-06-23T13:34:09.430Z"
+    },
+    {
+      "test": "BOOKING_004_Get_Booking_Details",
+      "status": "PASS",
+      "details": "Booking status: pending",
+      "timestamp": "2025-06-23T13:34:09.857Z"
+    },
+    {
+      "test": "BOOKING_005_Host_Confirm",
+      "status": "PASS",
+      "details": "Booking confirmed by host",
+      "timestamp": "2025-06-23T13:34:10.481Z"
+    },
+    {
+      "test": "MESSAGE_001_Send_From_Host",
+      "status": "PASS",
+      "details": "Message ID: 3",
+      "timestamp": "2025-06-23T13:34:11.108Z"
+    },
+    {
+      "test": "MESSAGE_002_Send_From_Guest",
+      "status": "PASS",
+      "details": "Guest message sent",
+      "timestamp": "2025-06-23T13:34:11.526Z"
+    },
+    {
+      "test": "MESSAGE_003_Get_Booking_Messages",
+      "status": "PASS",
+      "details": "Found 2 messages",
+      "timestamp": "2025-06-23T13:34:12.273Z"
+    },
+    {
+      "test": "MESSAGE_004_Get_Conversations",
+      "status": "PASS",
+      "details": "Host has 1 conversations",
+      "timestamp": "2025-06-23T13:34:12.684Z"
+    },
+    {
+      "test": "MESSAGE_005_Get_Unread_Count",
+      "status": "PASS",
+      "details": "Guest has 1 unread messages",
+      "timestamp": "2025-06-23T13:34:13.099Z"
+    },
+    {
+      "test": "DB_001_Check_User_In_DB",
+      "status": "PASS",
+      "details": "User data verified in database",
+      "timestamp": "2025-06-23T13:34:13.201Z"
+    },
+    {
+      "test": "ERROR_001_Invalid_Login",
+      "status": "PASS",
+      "details": "Correctly rejected invalid credentials",
+      "timestamp": "2025-06-23T13:34:13.430Z"
+    },
+    {
+      "test": "ERROR_002_Unauthorized_Access",
+      "status": "PASS",
+      "details": "Correctly rejected invalid token",
+      "timestamp": "2025-06-23T13:34:13.541Z"
+    },
+    {
+      "test": "ERROR_003_Double_Booking",
+      "status": "PASS",
+      "details": "Correctly prevented double booking",
+      "timestamp": "2025-06-23T13:34:13.954Z"
+    },
+    {
+      "test": "CLEANUP_001_Cancel_Booking",
+      "status": "FAIL",
+      "details": "Request failed with status code 400",
+      "timestamp": "2025-06-23T13:34:14.262Z"
+    },
+    {
+      "test": "CLEANUP_002_Delete_Listing",
+      "status": "PASS",
+      "details": "Listing soft deleted",
+      "timestamp": "2025-06-23T13:34:14.777Z"
+    }
+  ],
+  "environment": {
+    "backendUrl": "http://localhost:5002/api",
+    "nodeVersion": "v24.2.0"
+  }
+}

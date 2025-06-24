@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireVerified } from '../middleware/auth';
 import { validate } from '../middleware/validate';
 import {
   createBooking,
@@ -23,6 +23,7 @@ router.get('/:id', authenticate, getBookingById);
 router.post(
   '/',
   authenticate,
+  requireVerified,
   [
     body('listingId').isInt().withMessage('Listing ID is required'),
     body('date').isISO8601().withMessage('Valid date is required'),
@@ -39,6 +40,7 @@ router.post(
 router.patch(
   '/:id/status',
   authenticate,
+  requireVerified,
   [
     body('status').isIn(['confirmed', 'cancelled']).withMessage('Invalid status'),
     body('reason').optional().isString()

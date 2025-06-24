@@ -7,12 +7,29 @@ let pool: mysql.Pool;
 
 export const connectDB = async () => {
   try {
+    // First, connect without specifying a database to create it if needed
+    const tempConnection = await mysql.createConnection({
+      host: process.env.DB_HOST || 'localhost',
+      port: parseInt(process.env.DB_PORT || '3306'),
+      user: process.env.DB_USER || 'root',
+      password: process.env.DB_PASSWORD,
+    });
+
+    // Create database if it doesn't exist
+    const dbName = process.env.DB_NAME || 'nukte_db';
+    await tempConnection.execute(`CREATE DATABASE IF NOT EXISTS \`${dbName}\``);
+    console.log(`Database '${dbName}' ensured`);
+    
+    // Close temporary connection
+    await tempConnection.end();
+
+    // Now create the pool with the database
     pool = mysql.createPool({
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '3306'),
       user: process.env.DB_USER || 'root',
       password: process.env.DB_PASSWORD,
-      database: process.env.DB_NAME || 'nukte_db',
+      database: dbName,
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
@@ -166,6 +183,33 @@ const createTables = async () => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (listing_id) REFERENCES listings(id) ON DELETE CASCADE,
       UNIQUE KEY unique_availability (listing_id, date)
+    )`,
+
+    // Password reset tokens table
+    `CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      token VARCHAR(255) NOT NULL UNIQUE,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX idx_token (token),
+      INDEX idx_expires (expires_at)
+    )`,
+
+    // Email verification codes table
+    `CREATE TABLE IF NOT EXISTS email_verification_codes (
+      id INT PRIMARY KEY AUTO_INCREMENT,
+      user_id INT NOT NULL,
+      code VARCHAR(6) NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT FALSE,
+      attempts INT DEFAULT 0,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      INDEX idx_user_code (user_id, code),
+      INDEX idx_expires (expires_at)
     )`
   ];
 
